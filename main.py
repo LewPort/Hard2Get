@@ -11,12 +11,9 @@ import animations
 pygame.init()
 
 CLOCK = pygame.time.Clock()
+MUSIC = False
 
 grey = (50,50,50)
-
-
-
-KEY_DICT = {}
 
     
 class Key_commands:
@@ -29,8 +26,6 @@ class Key_commands:
             player.move('left')
         if keys[pygame.K_d]:
             player.move('right')
-        else:
-            player.move('stop')
 
 def gameloop():
     while playing:
@@ -57,6 +52,9 @@ def gameloop():
 bg = objects.Background(animations.bg, 0, 0, velX=0.2, falls=False)
 bg2 = objects.Background(animations.bg, - screen.WIDTH, 0, velX=0.2, falls=False)
 player = objects.Player(animations.playerAnimationRepertoire, screen.WIDTH/2, screen.HEIGHT/2, 0, 0, 0.5)
+for i in range(4):
+    objects.Static(animations.palmAnimationRepertoire, random.randint(0, screen.WIDTH), screen.HEIGHT - 21,
+                   falls=True, collisions=False)
 for i in range(10):
     objects.Static(animations.box1AnimationRepertoire,
                    random.randint(0, screen.WIDTH), random.randint(0, levels.FLOOR_LEVEL), falls=False)

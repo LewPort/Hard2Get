@@ -9,7 +9,7 @@ DYNAMIC_OBJ_LIST = []
 class Object():
 
 
-    def __init__(self, animation_repertoire, x, y, velX, velY, friction, falls=True):
+    def __init__(self, animation_repertoire, x, y, velX, velY, friction, falls=True, collisions=True):
         self.animation_repertoire = animation_repertoire
         self.x = x
         self.y = y
@@ -20,6 +20,7 @@ class Object():
         self.friction = friction
         self.object_state = 'still'
         self.falls = falls
+        self.collisions = collisions
         self.height = self.get_height()
         self.width = self.get_width()
 
@@ -29,14 +30,17 @@ class Object():
     def get_height(self):
         return self.animation_repertoire[self.object_state].return_frame().get_height()
 
+    def get_rect(self):
+        return ((self.x, self.y),
+                (self.right_side(), self.y),
+                (self.right_side(), self.bottom(),)
+                (self.x, self.bottom()))
+
     def x_centre(self):
         return int(self.x + self.width/2)
 
     def y_centre(self):
         return self.y + self.height/2
-
-    def abs_x_range(self):
-        pass
 
     def top(self):
         return self.x
@@ -51,7 +55,30 @@ class Object():
         self.x += vecX
         self.y += vecY
 
-    def get_floor_height(self, x):
+
+    def collision_detected(self, other):
+        if other.collisions:
+            if self.right_side() >= other.x and self.x <= other.right_side():
+                if self.bottom() >= other.y and self.y <= other.bottom():
+                    return True
+        else:
+            return False
+
+    def collision_side(self, other):
+        if self.collision_detected(other):
+            if self.right_side() > other.x:
+                return 'right'
+            elif self.x < other.right_side():
+                return 'left'
+            elif self.y > other.bottom():
+                return 'top'
+            elif self.bottom() < other.y():
+                return 'bottom'
+            else:
+                return None
+
+
+    def process_applicable_floor(self, x):
         floor_level = levels.DEFAULT_FLOOR_LEVEL
         try:
             for level in sorted(levels.FLOOR_LEVEL_LIST[x], reverse=True):
@@ -61,11 +88,13 @@ class Object():
             pass
         return floor_level
 
-    def process_surface_interractions(self):
+    def floor_behaviour(self):
+        #Stops Obj falling through whatever floor its on
         if self.bottom() >= self.floor_level:
             self.onFloor = True
             self.velY = 0
             self.y = self.floor_level - self.get_height()
+        #Gives object friction so it doesn't slide along the floor forever
         if self.onFloor:
             if abs(self.velX) < self.friction:
                 self.velX = 0
@@ -73,13 +102,20 @@ class Object():
                 self.velX -= self.friction
             elif self.velX < 0:
                 self.velX += self.friction
+
+    def screen_edge_behaviour(self):
+        #What will the object do when it goes beyond the bounds of the screen?
         if self.x_centre() <= 0:
             self.velX = 0
             self.x = 0 - (self.width/2)+1
         elif self.x_centre() >= screen.WIDTH:
             self.velX = 0
             self.x = screen.WIDTH - int(self.width/2)-1
-        self.floor_level = self.get_floor_height(self.x_centre())
+
+    def process_surface_interractions(self):
+        self.floor_behaviour()
+        self.screen_edge_behaviour()
+        self.floor_level = self.process_applicable_floor(self.x_centre())
 
     def draw(self):
         screen.DISPLAY.blit(self.animation_repertoire[self.object_state].return_frame(), (self.x, self.y))
@@ -113,13 +149,7 @@ class Player(Object):
             self.velY = -self.jump_power
             self.onFloor = False
 
-    def update(self):
-        self.x += self.velX
-        self.y += self.velY
-        if self.falls:
-            self.velY += levels.GRAVITY
-        self.process_surface_interractions()
-        self.draw()
+    def choose_animation(self):
         if self.onFloor:
             if self.velX == 0:
                 self.object_state = 'still'
@@ -132,16 +162,52 @@ class Player(Object):
                 self.object_state = 'jumping_right'
             elif self.velX < 0:
                 self.object_state = 'jumping_left'
+            else:
+                self.object_state = 'jumping_up'
+
+    def process_surface_interractions(self):
+        self.floor_behaviour()
+        self.screen_edge_behaviour()
+        for obj in STATIC_LIST:
+            if self.collision_side(obj):
+                print(self.collision_side(obj))
+            if self.collision_side(obj) == 'top':
+                self.velY -= self.speed_increment
+            elif self.collision_side(obj) == 'left':
+                self.velX += self.speed_increment
+            elif self.collision_side(obj) == 'bottom':
+                self.velY += self.speed_increment
+            elif self.collision_side(obj) == 'right':
+                self.velX -= self.speed_increment
+        self.floor_level = self.process_applicable_floor(self.x_centre())
+
+    def update(self):
+        self.process_surface_interractions()
+        self.x += self.velX
+        self.y += self.velY
+        if self.falls:
+            self.velY += levels.GRAVITY
+        self.choose_animation()
+        self.draw()
 
 
 class Static(Object):
 
-    def __init__(self, img, x, y, velX=0, velY=0, friction=0, falls=False):
-        super().__init__(img, x, y, velX, velY, friction, falls)
+    def __init__(self, img, x, y, velX=0, velY=0, friction=0, falls=False, collisions=True):
+        super().__init__(img, x, y, velX, velY, friction, falls, collisions)
         STATIC_LIST.append(self)
 
+
     def get_walkable_surface(self):
-        return (self.x, self.x + self.width)
+        if self.collisions:
+            return (self.x, self.x + self.width)
+        else:
+            return (0, 0)
+
+    def get_walls(self):
+        if self.collisions:
+            return ((self.x, self.x + self.width),
+                    (self.x + self.width, self))
 
 class Background(Object):
 
@@ -160,3 +226,4 @@ class Background(Object):
             self.x = -screen.WIDTH
         # elif self.x < -screen.WIDTH and self.velX < 0:
         #     self.x = screen.WIDTH
+

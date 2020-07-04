@@ -1,12 +1,11 @@
 import pygame
-import objects
 import random
-import objects
 import time
 
 class Animation():
 
-    def __init__(self, frame_list, frame_delta, loop_delay, random=False, flip_x=False, flip_y=False):
+    def __init__(self, frame_list, frame_delta, loop_delay, random=False, flip_x=False, flip_y=False, scale_size=1):
+        self.scale_size = scale_size
         self.raw_frame_list = frame_list
         self.frame_list = self.load_frames(self.raw_frame_list)
         self.flip_x = flip_x
@@ -27,7 +26,8 @@ class Animation():
         tempList = []
         for frame in rawframes:
             frame = pygame.image.load(frame)
-            # frame = pygame.transform.scale(frame, (200,200))
+            if self.scale_size is not 1:
+                frame = pygame.transform.scale(frame, (self.scale_size, self.scale_size))
             if flip_x:
                 frame = pygame.transform.flip(frame, True, False)
             elif flip_y:
@@ -71,6 +71,8 @@ playerAnimationRepertoire = {'running_right':
                              'jumping_left':
                                  Animation(['anim/run3.png'],
                                            200, 1000, flip_x=True),
+                             'jumping_up':Animation(['anim/jump1.png'],
+                                           200, 1000),
                              'still':
                                  Animation(['anim/still1.png',
                                             'anim/still2.png',
@@ -79,5 +81,8 @@ playerAnimationRepertoire = {'running_right':
 
 box1AnimationRepertoire = {'still':
                                Animation(['anim/box1.png'], 0, 0)}
+
+palmAnimationRepertoire = {'still':
+                               Animation(['anim/palm1.png'], 0, 0, scale_size= 32)}
 
 bg = {'still': Animation(['anim/bg.png'], 0, 0)}
